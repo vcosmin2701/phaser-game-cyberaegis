@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CyberAegis – Vizual</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0; left: 0;
+    }
+  </style>
+  <style>
+  #questionBox {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+  .question-container {
+    background: #1e1e1e;
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 500px;
+    text-align: center;
+  }
+  .question-container h2 {
+    margin-bottom: 20px;
+  }
+  .question-container button {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    padding: 10px;
+    font-size: 16px;
+    background: #444;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .question-container button:hover {
+    background: #cc0000;
+  }
+  </style>
+</head>
+<body>
+<div id="questionBox">
+  <div class="question-container">
+    <h2 id="questionText">Întrebare</h2>
+    <div id="questionOptions"></div>
+  </div>
+</div>
+<div id="introOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:black;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:sans-serif;text-align:center">
+  <img src="assets/Lvl1.jpg" style="max-width:100%; height:auto;" />
+  <div style="position:absolute;top:30%;left:50%;transform:translateX(-50%);max-width:600px;background:rgba(0,0,0,0.6);padding:20px;border-radius:12px;">
+    <p style="font-size:24px;">O nu, ușa este încuiată!<br>Trebuie să colectezi toate elementele pentru a o debloca!<br>Ai grijă, vei avea provocări.</p>
+    <button id="startBtn" style="padding:10px 30px;font-size:20px;border:none;border-radius:8px;background:#44c;color:white;cursor:pointer;">Continuă</button>
+  </div>
+</div>
+<div id="finalOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:black;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:sans-serif;text-align:center">
+  <img id="portalImage" src="assets/Lvl1.3.jpg" style="max-width:100%; height:auto; display:none;" />
+  <div id="finalMessage" style="position:absolute;top:30%;left:50%;transform:translateX(-50%);max-width:600px;background:rgba(0,0,0,0.6);padding:20px;border-radius:12px;">
+    <p style="font-size:24px;">Wow, ai reușit să deschizi portalul!</p>
+  </div>
+</div>
+<script>
+const config = {
+  type: Phaser.AUTO,
+  width: 1536,
+  height: 1024,
+  physics: {
+    default: 'arcade',
+    arcade: { gravity: { y: 300 }, debug: true }
+  },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  scene: {
+    preload,
+    create,
+    update
+  }
+};
+
+let player, cursors;
+
+function preload() {
+  this.load.image('bg', 'assets/Lvl1.jpg');
+  this.load.image('plat', 'assets/platou2.png');
+  this.load.image('lock', 'assets/Lock.png');
+  this.load.image('diamond', 'assets/diamantLung.png');
+  this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
+}
+
+function create() {
+  const scene = this;
+  this.add.image(0, 0, 'bg').setOrigin(0).setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
+
+  const door = this.add.rectangle(768, 512, 300, 500, 0x000000, 0).setInteractive();
+  door.once('pointerdown', () => {
+    document.getElementById('introOverlay').style.display = 'flex';
+  });
+
+  player = this.physics.add.sprite(100, 800, 'dude');
+  player.setBounce(0.2).setCollideWorldBounds(true).setScale(3.5);
+
+  this.anims.create({ key: 'left', frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
+  this.anims.create({ key: 'turn', frames: [{ key: 'dude', frame: 4 }], frameRate: 20 });
+  this.anims.create({ key: 'right', frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }), frameRate: 10, repeat: -1 });
+
+  cursors = this.input.keyboard.createCursorKeys();
+
+  scene.events.on('activateGameplay', () => {
+    const platforms = scene.physics.add.staticGroup();
+    const platData = [
+      { x: 340, y: 275, s: 0.25 },
+      { x: 650, y: 400, s: 0.22 },
+      { x: 1000, y: 300, s: 0.20 },
+      { x: 1300, y: 500, s: 0.20 },
+      { x: 1000, y: 700, s: 0.25 },
+      { x: 650, y: 860, s: 0.25 }
+    ];
+    platData.forEach(p => platforms.create(p.x, p.y, 'plat').setScale(p.s).refreshBody());
+
+    platforms.getChildren().forEach(plat => {
+      const newW = plat.displayWidth * 0.9;
+      const newH = plat.displayHeight * 0.9;
+      plat.body.setSize(newW, newH);
+      plat.body.setOffset((plat.displayWidth - newW) / 2, plat.displayHeight - newH);
+    });
+    scene.physics.add.collider(player, platforms);
+
+    const possiblePositions = [
+      { x: 300, y: 200 },
+      { x: 620, y: 300 },
+      { x: 1000, y: 200 },
+      { x: 1300, y: 400 },
+      { x: 1000, y: 600 },
+      { x: 650, y: 800 }
+    ];
+    Phaser.Utils.Array.Shuffle(possiblePositions);
+
+    const elements = [
+      { key: 'lock' },
+      { key: 'diamond' },
+      { key: 'lock' },
+      { key: 'diamond' }
+    ];
+
+    let correctAnswers = 0;
+    function checkCompletion() {
+      if (correctAnswers >= elements.length) {
+        document.getElementById('finalOverlay').style.display = 'flex';
+        setTimeout(() => {
+          document.getElementById('finalMessage').style.display = 'none';
+          document.getElementById('portalImage').style.display = 'block';
+        }, 4000);
+      }
+    }
+
+    const questions = [
+      {
+        question: "Ce este securitatea cibernetică?",
+        options: ["Un joc online", "Un mod de a fi în siguranță pe internet", "O aplicație de desenat", "O parolă"],
+        correct: 1
+      },
+      {
+        question: "Ce trebuie să faci dacă primești un mesaj ciudat?",
+        options: ["Îl arăți unui adult", "Dai click pe el", "Îl trimiți prietenilor", "Îl ignori complet"],
+        correct: 0
+      },
+      {
+        question: "Ce este o parolă bună?",
+        options: ["123456", "Numele tău", "Pisica9!Verde", "Parola"],
+        correct: 2
+      },
+      {
+        question: "De ce folosim antivirus?",
+        options: ["Pentru muzică", "Pentru protecția calculatorului", "Pentru a colora ecranul", "Pentru jocuri"],
+        correct: 1
+      }
+    ];
+
+    elements.forEach((item, index) => {
+      const pos = possiblePositions[index];
+      const q = questions[index];
+
+      const obj = scene.physics.add.sprite(pos.x, pos.y, item.key)
+        .setDisplaySize(150, 150)
+        .setOrigin(0.5, 1);
+
+      obj.answered = false;
+      obj.body.setAllowGravity(false);
+      obj.setImmovable(true);
+
+      scene.physics.add.overlap(player, obj, () => {
+        if (obj.answered) return;
+        obj.answered = true;
+
+        document.getElementById('questionText').textContent = q.question;
+        const optionsDiv = document.getElementById('questionOptions');
+        optionsDiv.innerHTML = '';
+        q.options.forEach((opt, i) => {
+          const btn = document.createElement('button');
+          btn.textContent = opt;
+          btn.onclick = () => {
+            if (i === q.correct) {
+              obj.destroy();
+              correctAnswers++;
+              checkCompletion();
+            } else {
+              alert('Răspuns greșit! Încearcă din nou.');
+              obj.answered = false;
+            }
+            document.getElementById('questionBox').style.display = 'none';
+          };
+          optionsDiv.appendChild(btn);
+        });
+        document.getElementById('questionBox').style.display = 'flex';
+      });
+    });
+  });
+}
+
+function update() {
+  if (cursors.left.isDown) {
+    player.setVelocityX(-160);
+    player.anims.play('left', true);
+  } else if (cursors.right.isDown) {
+    player.setVelocityX(160);
+    player.anims.play('right', true);
+  } else {
+    player.setVelocityX(0);
+    player.anims.play('turn');
+  }
+
+  if (cursors.up.isDown && (player.body.blocked.down || player.body.touching.down)) {
+    player.setVelocityY(-400);
+  }
+}
+
+let game = new Phaser.Game(config);
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('introOverlay').style.display = 'none';
+  if (game.scene.isActive('default')) {
+    game.scene.scenes[0].events.emit('activateGameplay');
+  }
+});
+</script>
+</body>
+</html>
