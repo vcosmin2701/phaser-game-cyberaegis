@@ -16,6 +16,84 @@
       position: absolute;
       top: 0; left: 0;
     }
+    
+    /* Game Controls */
+    #gameControls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      z-index: 100;
+    }
+    
+    .control-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      width: 70px;
+      height: 70px;
+      margin: 0 10px;
+      cursor: pointer;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s ease;
+    }
+    
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .control-btn:active {
+      background: rgba(255, 255, 255, 0.4);
+      transform: scale(0.95);
+    }
+    
+    .control-btn.pressed {
+      background: rgba(68, 204, 68, 0.6);
+      border-color: rgba(68, 204, 68, 1);
+    }
+    
+    #jumpBtn {
+      position: absolute;
+      right: 20px;
+      bottom: 80px;
+      background: rgba(255, 100, 100, 0.6);
+      border: 2px solid rgba(255, 100, 100, 0.8);
+    }
+    
+    #jumpBtn:hover {
+      background: rgba(255, 100, 100, 0.7);
+    }
+    
+    #jumpBtn:active, #jumpBtn.pressed {
+      background: rgba(255, 100, 100, 0.8);
+      transform: scale(0.95);
+    }
+    
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+      .control-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+        margin: 0 8px;
+      }
+      
+      #jumpBtn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+        right: 15px;
+        bottom: 70px;
+      }
+    }
   </style>
   <style>
   #questionBox {
@@ -63,6 +141,14 @@
     <div id="questionOptions"></div>
   </div>
 </div>
+
+<!-- Game Controls -->
+<div id="gameControls">
+  <button id="leftBtn" class="control-btn">←</button>
+  <button id="rightBtn" class="control-btn">→</button>
+</div>
+<button id="jumpBtn" class="control-btn">↑</button>
+
 <div id="introOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:black;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:sans-serif;text-align:center">
   <img src="assets/Lvl1.jpg" style="max-width:100%; height:auto;" />
   <div style="position:absolute;top:30%;left:50%;transform:translateX(-50%);max-width:600px;background:rgba(0,0,0,0.6);padding:20px;border-radius:12px;">
@@ -76,6 +162,7 @@
     <p style="font-size:24px;">Wow, ai reușit să deschizi portalul!</p>
   </div>
 </div>
+
 <script>
 const config = {
   type: Phaser.AUTO,
@@ -97,6 +184,11 @@ const config = {
 };
 
 let player, cursors;
+let controlState = {
+  left: false,
+  right: false,
+  up: false
+};
 
 function preload() {
   this.load.image('bg', 'assets/Lvl1.jpg');
@@ -125,6 +217,10 @@ function create() {
   cursors = this.input.keyboard.createCursorKeys();
 
   scene.events.on('activateGameplay', () => {
+    // Show game controls when gameplay starts
+    document.getElementById('gameControls').style.display = 'block';
+    document.getElementById('jumpBtn').style.display = 'inline-flex';
+    
     const platforms = scene.physics.add.staticGroup();
     const platData = [
       { x: 340, y: 275, s: 0.25 },
@@ -237,10 +333,15 @@ function create() {
 }
 
 function update() {
-  if (cursors.left.isDown) {
+  // Handle keyboard input
+  const leftPressed = cursors.left.isDown || controlState.left;
+  const rightPressed = cursors.right.isDown || controlState.right;
+  const upPressed = cursors.up.isDown || controlState.up;
+
+  if (leftPressed) {
     player.setVelocityX(-160);
     player.anims.play('left', true);
-  } else if (cursors.right.isDown) {
+  } else if (rightPressed) {
     player.setVelocityX(160);
     player.anims.play('right', true);
   } else {
@@ -248,12 +349,100 @@ function update() {
     player.anims.play('turn');
   }
 
-  if (cursors.up.isDown && (player.body.blocked.down || player.body.touching.down)) {
+  if (upPressed && (player.body.blocked.down || player.body.touching.down)) {
     player.setVelocityY(-400);
   }
 }
 
 let game = new Phaser.Game(config);
+
+// Control button event handlers
+function setupControls() {
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+  const jumpBtn = document.getElementById('jumpBtn');
+
+  // Left button
+  leftBtn.addEventListener('mousedown', () => {
+    controlState.left = true;
+    leftBtn.classList.add('pressed');
+  });
+  leftBtn.addEventListener('mouseup', () => {
+    controlState.left = false;
+    leftBtn.classList.remove('pressed');
+  });
+  leftBtn.addEventListener('mouseleave', () => {
+    controlState.left = false;
+    leftBtn.classList.remove('pressed');
+  });
+
+  // Touch events for left button
+  leftBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    controlState.left = true;
+    leftBtn.classList.add('pressed');
+  });
+  leftBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    controlState.left = false;
+    leftBtn.classList.remove('pressed');
+  });
+
+  // Right button
+  rightBtn.addEventListener('mousedown', () => {
+    controlState.right = true;
+    rightBtn.classList.add('pressed');
+  });
+  rightBtn.addEventListener('mouseup', () => {
+    controlState.right = false;
+    rightBtn.classList.remove('pressed');
+  });
+  rightBtn.addEventListener('mouseleave', () => {
+    controlState.right = false;
+    rightBtn.classList.remove('pressed');
+  });
+
+  // Touch events for right button
+  rightBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    controlState.right = true;
+    rightBtn.classList.add('pressed');
+  });
+  rightBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    controlState.right = false;
+    rightBtn.classList.remove('pressed');
+  });
+
+  // Jump button
+  jumpBtn.addEventListener('mousedown', () => {
+    controlState.up = true;
+    jumpBtn.classList.add('pressed');
+  });
+  jumpBtn.addEventListener('mouseup', () => {
+    controlState.up = false;
+    jumpBtn.classList.remove('pressed');
+  });
+  jumpBtn.addEventListener('mouseleave', () => {
+    controlState.up = false;
+    jumpBtn.classList.remove('pressed');
+  });
+
+  // Touch events for jump button
+  jumpBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    controlState.up = true;
+    jumpBtn.classList.add('pressed');
+  });
+  jumpBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    controlState.up = false;
+    jumpBtn.classList.remove('pressed');
+  });
+}
+
+// Initialize controls when page loads
+setupControls();
 
 document.getElementById('startBtn').addEventListener('click', () => {
   document.getElementById('introOverlay').style.display = 'none';
